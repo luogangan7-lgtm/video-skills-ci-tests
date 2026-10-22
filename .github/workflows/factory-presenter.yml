@@ -1,0 +1,58 @@
+name: Factory presenter skill test
+on:
+  push:
+    branches: [test/factory-presenter]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ecommerce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SOURCE_SHA: 96c49b349b7d975bda8f05ce6669c1d33500c269
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: xianyu110/ecommerce-video-skills
+          ref: 96c49b349b7d975bda8f05ce6669c1d33500c269
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install render dependencies on CI runner
+        timeout-minutes: 4
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! test -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf; then
+            timeout 90 sudo apt-get -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=1 update -qq
+            timeout 90 sudo apt-get -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=1 install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core
+          fi
+          python -m pip install --timeout 30 --retries 1 pillow==13.0.0 numpy==2.5.4 edge-tts==7.3.1
+          mkdir -p factory-presenter/out
+          python -m pip freeze > factory-presenter/out/dependencies.txt
+          test "$(git -C upstream rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Verify handheld source and prepare native storyboard on CI
+        run: python factory-presenter/ci/prepare.py
+      - name: Run unchanged upstream native assembler
+        run: |
+          set -o pipefail
+          timeout 600 python upstream/scripts/assemble.py factory-presenter/storyboard.json --size 1920x1080 --font 'DejaVu Sans' --build factory-presenter/build -o factory-presenter/out/factory-presenter.mp4 2>&1 | tee factory-presenter/out/render.log
+      - name: Actual output checks and red to green mutations
+        run: python factory-presenter/ci/verify.py
+      - name: Preserve exact exported media and receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: factory-presenter-${{ github.sha }}
+          path: |
+            factory-presenter/out/
+            factory-presenter/build/timing.json
+            factory-presenter/build/subs.ass
+            factory-presenter/storyboard.json
+          retention-days: 7
+          if-no-files-found: error
