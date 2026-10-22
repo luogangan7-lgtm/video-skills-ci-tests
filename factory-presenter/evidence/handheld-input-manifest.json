@@ -1,0 +1,12 @@
+{
+  "task_id": "455063786779061",
+  "file_id": "455065109852437",
+  "raw_sha256": "e28803f4c82d9df35d8f8eaec5004c6f32aa6326b3058e779aa7da385af3fe9f",
+  "bytes": 834192,
+  "anchor_sha256": "be784f628e7476a68bf749c3772752b0dc57950529209d5f62388b00f47277fb",
+  "model": "MiniMax-Hailuo-2.3",
+  "duration": 10,
+  "resolution": "768P",
+  "quota_total": 3,
+  "quota_usage": 1
+}

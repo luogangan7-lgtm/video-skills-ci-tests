@@ -1,7 +1,8 @@
 """Check actual CI exports and reject frozen/corrupt inputs before delivery.
 
-Uses the existing media gate plus decoded mouth/hand regions. Region movement
-does not establish phoneme-level lip synchronisation; that remains unverified.
+Uses the existing media gate, decoded mouth/grip regions and source fidelity.
+Contact and product anatomy still require independent actual-frame review;
+movement alone does not establish contact or phoneme-level lip synchronisation.
 """
 import hashlib
 import json
@@ -18,12 +19,13 @@ from verify_render import check
 
 ROOT = Path('factory-presenter')
 OUT = ROOT / 'out'
-RAW = ROOT / 'assets/presenter-01.mp4'
+RAW = ROOT / 'assets/presenter-handheld.mp4'
 FINAL = OUT / 'factory-presenter.mp4'
+TIMES = (0.4, 2.0, 4.0, 6.0, 8.0, 9.5)
 
 
 def frame(path, stamp, region=None):
-    vf = 'scale=1920:1080'
+    vf = 'scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080'
     if region:
         vf += ',crop=' + region
     vf += ',scale=320:-2'
@@ -35,34 +37,63 @@ def frame(path, stamp, region=None):
 
 def motion(path):
     results = {}
-    for name, crop in [('mouth', '185:130:365:220'), ('hands', '650:280:70:720')]:
-        samples = [np.asarray(frame(path, t, crop), dtype=np.float32) for t in (0.4, 1.4, 2.4, 3.4, 4.4, 5.4)]
+    for name, crop in [('mouth', '250:130:860:470'), ('grip', '500:520:250:420')]:
+        samples = [np.asarray(frame(path, t, crop), dtype=np.float32) for t in TIMES]
         diffs = [float(np.mean(np.abs(a - b))) for a, b in zip(samples, samples[1:])]
         assert max(diffs) > 1.0, name + ' has no movement'
         results[name] = diffs
     return results
 
 
+def source_fidelity(path):
+    # Exclude the lower caption band. Detect card overlays and substituted scenes
+    # against actual source pixels, rather than trusting storyboard declarations.
+    diffs = []
+    for t in TIMES:
+        a = np.asarray(frame(path, t, '1920:850:0:0'), dtype=np.float32)
+        b = np.asarray(frame(RAW, t, '1920:850:0:0'), dtype=np.float32)
+        diff = float(np.mean(np.abs(a - b)))
+        assert diff < 12.0, f'continuous handheld source replaced or overlaid at {t}s: {diff}'
+        diffs.append(diff)
+    return diffs
+
+
 timing = json.loads((ROOT / 'build/timing.json').read_text())
-assert timing['size'] == [1920, 1080] and len(timing['voice']) == 2
+assert timing['size'] == [1920, 1080] and len(timing['voice']) == 1
 for voice, slot in zip(timing['voice'], timing['durations']):
     assert voice + 0.15 <= slot, 'voice would be cut at the shot boundary'
 assert '-->' in FINAL.with_suffix('.srt').read_text()
 probe = check(FINAL, 1920, 1080, 10.0, True)
 actual_motion = motion(RAW)
+final_motion = motion(FINAL)
+fidelity = source_fidelity(FINAL)
 
 frozen = OUT / 'frozen-negative-control.mp4'
 still = OUT / 'negative-still.png'
 frame(RAW, 0.4).save(still)
-subprocess.run(['ffmpeg', '-y', '-v', 'error', '-loop', '1', '-i', str(still), '-t', '6',
+subprocess.run(['ffmpeg', '-y', '-v', 'error', '-loop', '1', '-i', str(still), '-t', '10',
                 '-r', '30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(frozen)], check=True, timeout=120)
 try:
     motion(frozen)
 except AssertionError:
-    motion_red = 'RED frozen person rejected; GREEN source mouth and hands move'
+    motion_red = 'RED frozen person rejected; GREEN source and final mouth/grip move'
 else:
     raise AssertionError('movement gate accepted a frozen person')
 frozen.unlink(); still.unlink()
+
+card = OUT / 'sidecard-negative-control.mp4'
+subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(FINAL), '-vf',
+                'drawbox=x=1250:y=65:w=590:h=880:color=white:t=fill', '-an',
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', str(card)],
+               check=True, timeout=120)
+try:
+    source_fidelity(card)
+except AssertionError:
+    layout_red = 'RED encoded sidecard overlay rejected; GREEN continuous handheld source preserved'
+else:
+    raise AssertionError('source fidelity gate accepted a sidecard overlay')
+card.unlink()
+source_fidelity(FINAL)
 
 broken = OUT / 'truncated-negative-control.mp4'
 broken.write_bytes(FINAL.read_bytes()[:64])
@@ -82,8 +113,9 @@ assert rms > 0.01, 'final audio is silent'
 
 # Actual output frames, plus a six-frame close view of the moving face.
 for file, path, times, crop in [
-    ('final-review.jpg', FINAL, (0.5, 2, 4, 5.5, 7, 9.5), None),
-    ('face-review.jpg', RAW, (0.4, 1.4, 2.4, 3.4, 4.4, 5.4), '430:450:230:0'),
+    ('final-review.jpg', FINAL, TIMES, None),
+    ('face-review.jpg', RAW, TIMES, '700:700:650:0'),
+    ('grip-review.jpg', FINAL, TIMES, '540:600:220:370'),
 ]:
     thumbs = [ImageOps.contain(frame(path, t, crop), (640, 400)) for t in times]
     sheet = Image.new('RGB', (1920, 860), 'white')
@@ -95,12 +127,15 @@ for file, path, times, crop in [
 
 receipt = {
     'test_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
-    'upstream_sha': os.environ['SOURCE_SHA'], 'model_task_id': '455058692219309',
+    'upstream_sha': os.environ['SOURCE_SHA'], 'model_task_id': '455063786779061',
     'sha256': hashlib.sha256(FINAL.read_bytes()).hexdigest(), 'bytes': FINAL.stat().st_size,
     'raw_sha256': hashlib.sha256(RAW.read_bytes()).hexdigest(), 'probe': probe,
     'motion': actual_motion, 'motion_mutation': motion_red, 'decode_mutation': decode_red,
+    'final_motion': final_motion, 'source_fidelity_mae': fidelity, 'layout_mutation': layout_red,
     'audio_rms': rms, 'voice_seconds': timing['voice'],
-    'scope': 'real generated presenter movement, separate Edge TTS and native ecommerce assembly',
+    'scope': 'one continuous generated handheld source; separate Edge TTS; native ecommerce assembly',
+    'source_resolution': '768P, scaled to 1080P output canvas',
+    'handheld_contact_and_anatomy': 'REQUIRES_INDEPENDENT_ACTUAL_FRAME_REVIEW',
     'phoneme_lip_sync': 'NOT_VERIFIED', 'normal_speed_watch_and_listen': 'NOT_RUN',
     'clipcat_generation': 'NOT_RUN: browser sign-in required; no configured Clipcat API key',
 }

@@ -1,26 +1,31 @@
 # Factory presenter comparison
 
-Private creative test authorised on 2026-10-22. The user requested a hearing aid,
-a factory background and a speaking presenter, and no extra on-screen AI label.
-This test uses a fictional generated presenter, a reference factory image and
-the complete official G25BT product PNG. It does not document a real employee.
+Private creative test authorised on 2026-10-22. The user corrected the brief:
+the presenter must physically hold the hearing aid; a separate product card
+cannot substitute for hand contact. No additional on-screen AI label is wanted.
+This revision uses a generated fictional presenter holding a G25BT referenced
+from the complete official product PNG. It does not document a real employee.
 
-MiniMax Hailuo 2.3 supplies real human motion from task `455058692219309` using
-the existing subscription. Edge TTS supplies separate speech. Exact phoneme lip
-sync has not been verified. Rendering, media transforms and validation run only
-on GitHub Actions. No subscription key or signed media URL is committed.
+MiniMax Hailuo 2.3 supplies a continuous ten-second handheld shot from task
+`455063786779061`, using the existing subscription. The source is 768P, scaled
+to a 1920x1080 export canvas. Edge TTS supplies separate speech; phoneme-level
+lip sync has not been verified. Rendering, media transforms and validation run
+only on GitHub Actions. No subscription key or signed media URL is committed.
 
 The pinned `xianyu110/ecommerce-video-skills` native assembler is unchanged.
-The small CI preparation step places the unchanged product image on the model
-video; the native assembler provides speech, transitions, captions and export.
-The ten-second test has a 5.7-second presenter shot and a 4.3-second product view.
+Its storyboard consumes the actual ten-second video directly. No side product
+card, image substitution, static end shot, loop or frozen padding is added.
+Native speech, captions, BGM and export remain in that skill's own pipeline.
 
-Clipcat requires a separate Clipcat login, API key and its own credits. The
-current browser presented its sign-in dialog. Its account balance is unknown;
-the unauthenticated page's zero must not be treated as a verified balance.
-Clipcat generation has not run. A MiniMax subscription is not a Clipcat API key.
+Clipcat's hosted API requires its own login and API key. No documented MiniMax
+subscription BYOK route was found. The browser presented sign-in; balance is
+unknown. Clipcat generation remains NOT_RUN and is not represented as success.
 
-Acceptance: current-SHA full decode, encoding/timing checks, voice-fit and audio
-presence checks, mouth/hand movement with a frozen negative control, corrupt
-file rejection, and actual exported contact sheets. Movement and audio presence
-do not constitute proof of exact lip sync or an auditory quality review.
+Acceptance: exact-SHA full decode, duration/encoding and voice-fit checks,
+source/final mouth and grip motion with a frozen negative control, corrupt
+file rejection, and source-pixel fidelity with an encoded sidecard negative
+control. Actual exported full, face and grip review sheets support independent
+visual checks of hand contact, device scale, identity and continuity. Motion
+and source fidelity alone do not establish product anatomy or exact lip sync.
+Normal-speed complete viewing and listening remain NOT_RUN unless actually
+performed and documented separately. The earlier sidecard version is superseded.

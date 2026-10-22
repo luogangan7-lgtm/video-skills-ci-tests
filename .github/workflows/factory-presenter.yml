@@ -33,7 +33,7 @@ jobs:
           mkdir -p factory-presenter/out
           python -m pip freeze > factory-presenter/out/dependencies.txt
           test "$(git -C upstream rev-parse HEAD)" = "$SOURCE_SHA"
-      - name: Prepare factual product overlays on CI
+      - name: Verify handheld source and prepare native storyboard on CI
         run: python factory-presenter/ci/prepare.py
       - name: Run unchanged upstream native assembler
         run: |
