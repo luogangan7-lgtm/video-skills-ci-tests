@@ -26,10 +26,13 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install render dependencies on CI runner
+        timeout-minutes: 4
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk fonts-dejavu-core
-          python -m pip install pillow==13.0.0 numpy==2.5.4 edge-tts==7.3.1
+          if ! command -v ffmpeg >/dev/null || ! test -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf; then
+            timeout 90 sudo apt-get -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=1 update -qq
+            timeout 90 sudo apt-get -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=1 install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core
+          fi
+          python -m pip install --timeout 30 --retries 1 pillow==13.0.0 numpy==2.5.4 edge-tts==7.3.1
           mkdir -p factory-presenter/out
           python -m pip freeze > factory-presenter/out/dependencies.txt
           test "$(git -C upstream rev-parse HEAD)" = "$SOURCE_SHA"
