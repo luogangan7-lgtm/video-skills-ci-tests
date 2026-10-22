@@ -1,0 +1,9 @@
+{
+  "model": "MiniMax-Hailuo-2.3",
+  "prompt": "[Static shot] The same male presenter at the factory is delivering a short, friendly product introduction directly to camera. He clearly articulates words with continuously moving lips and jaw as if saying: \"Meet the Daerdo G twenty five B T, a rechargeable Bluetooth hearing aid.\" His mouth opens and closes naturally through a flowing sentence, with subtle head nods, one natural blink, and small restrained open-palm explaining gestures at waist height. Keep his face, hair, clothing, identity, framing and factory racks stable. End with hands resting and a small welcoming smile. No extra people, no object appears in his hands, no camera movement, no subtitles, no text, no watermarks. Photorealistic human movement, realistic finger anatomy.",
+  "first_frame_image": "sha256:0c386630ef908eab6f92b226c412394aee7be8e07d9e171fee083bc07ab54254",
+  "duration": 6,
+  "resolution": "1080P",
+  "prompt_optimizer": false,
+  "aigc_watermark": false
+}

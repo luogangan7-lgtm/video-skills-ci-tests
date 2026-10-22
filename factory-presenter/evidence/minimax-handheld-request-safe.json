@@ -1,0 +1,9 @@
+{
+  "model": "MiniMax-Hailuo-2.3",
+  "duration": 10,
+  "resolution": "768P",
+  "prompt_optimizer": false,
+  "aigc_watermark": false,
+  "prompt": "Continuous ten-second realistic product presentation, one uncut fixed-camera shot. The SAME man in the first frame looks at camera and naturally articulates with visible varied lip and jaw movement as if saying: Meet the Daerdo G twenty five B T, a rechargeable Bluetooth hearing aid. A behind the ear design, with simple physical controls. He keeps holding the SAME small navy hearing aid gently between thumb and index finger beside his chest throughout all ten seconds. Maintain clear fingertip contact, exact stable device shape, curved clear tube and white silicone dome, navy body, silver top volume wheel, oval M button and silver switch. Keep the device about twice thumbnail height. Do not enlarge, melt, replace, change color or hide the product. Only slight natural hand movement, a subtle tiny angle adjustment and natural blinks; avoid finger repositioning or turning the device around. Keep all five fingers anatomically correct. His other hand remains out of frame. No overlays, no product card, no text, no panel, no cut, no zoom, no camera motion. Preserve identity, clothing and factory background. The product stays in hand for the entire clip.",
+  "first_frame_sha256": "be784f628e7476a68bf749c3772752b0dc57950529209d5f62388b00f47277fb"
+}

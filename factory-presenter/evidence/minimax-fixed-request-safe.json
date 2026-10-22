@@ -1,0 +1,9 @@
+{
+  "model": "MiniMax-Hailuo-2.3",
+  "duration": 6,
+  "resolution": "1080P",
+  "prompt_optimizer": false,
+  "aigc_watermark": false,
+  "prompt": "One continuous six-second photorealistic factory product presentation. Fixed camera. Preserve the first frame composition exactly. The man looks directly into the lens with eyes OPEN, warm alert expression, and naturally speaks with varied lip and jaw articulation: Rechargeable Bluetooth hearing aid. Behind the ear design. Simple physical controls. His hand, wrist, fingers and the small navy hearing aid remain COMPLETELY STILL in exactly their first-frame positions and orientation for the entire shot, like a carefully held museum object. Absolutely no product rotation, no tilt, no roll, no regrasping, no hand gesture. The product is rigid and must remain pixel-consistent in anatomy: same navy body, same silver numbered wheel, same small oval M button, same separate silver O N switch, same thin clear curved tube and same separate white silicone dome. Do not fuse the tube into the fingers. Only the lips, jaw, and very subtle upper head motion animate. Keep eyes naturally open; at most one very brief blink. Keep the same man, clothing, lighting, soft factory background, natural human fingers, continuous fingertip contact and small real-life device scale. No cut, no zoom, no pan, no overlay, no text, no product card, no floating item, no independent product animation.",
+  "first_frame_sha256": "be784f628e7476a68bf749c3772752b0dc57950529209d5f62388b00f47277fb"
+}
