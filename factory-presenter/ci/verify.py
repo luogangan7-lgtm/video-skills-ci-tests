@@ -38,9 +38,16 @@ def frame(path, stamp, region=None):
 def motion(path):
     results = {}
     for name, crop in [('mouth', '250:130:860:470'), ('grip', '500:520:250:420')]:
-        samples = [np.asarray(frame(path, t, crop), dtype=np.float32) for t in TIMES]
+        # Area reduction suppresses H.264 block noise. A frozen lossy encode
+        # must fail too: per-pixel codec noise is not presenter movement.
+        samples = []
+        for t in TIMES:
+            img = frame(path, t, crop)
+            img = img.resize((64, round(img.height * 64 / img.width)), Image.Resampling.BOX)
+            samples.append(np.asarray(img, dtype=np.float32))
         diffs = [float(np.mean(np.abs(a - b))) for a, b in zip(samples, samples[1:])]
-        assert max(diffs) > 1.0, name + ' has no movement'
+        print(json.dumps({'path': str(path), 'region': name, 'motion_diffs': diffs}), flush=True)
+        assert max(diffs) > 3.0, name + ' has no meaningful movement above codec noise'
         results[name] = diffs
     return results
 
@@ -56,6 +63,21 @@ def source_fidelity(path):
         assert diff < 12.0, f'continuous handheld source replaced or overlaid at {t}s: {diff}'
         diffs.append(diff)
     return diffs
+
+
+# Actual output frames, plus a six-frame close view of the moving face.
+for file, path, times, crop in [
+    ('final-review.jpg', FINAL, TIMES, None),
+    ('face-review.jpg', RAW, TIMES, '700:700:650:0'),
+    ('grip-review.jpg', FINAL, TIMES, '540:600:220:370'),
+]:
+    thumbs = [ImageOps.contain(frame(path, t, crop), (640, 400)) for t in times]
+    sheet = Image.new('RGB', (1920, 860), 'white')
+    draw = ImageDraw.Draw(sheet)
+    for i, (thumb, t) in enumerate(zip(thumbs, times)):
+        x, y = (i % 3) * 640, (i // 3) * 430
+        sheet.paste(thumb, (x, y)); draw.text((x + 8, y + 402), f'{t:.1f}s', fill='black')
+    sheet.save(OUT / file, quality=92)
 
 
 timing = json.loads((ROOT / 'build/timing.json').read_text())
@@ -111,19 +133,6 @@ samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768
 rms = float(np.sqrt(np.mean(samples ** 2)))
 assert rms > 0.01, 'final audio is silent'
 
-# Actual output frames, plus a six-frame close view of the moving face.
-for file, path, times, crop in [
-    ('final-review.jpg', FINAL, TIMES, None),
-    ('face-review.jpg', RAW, TIMES, '700:700:650:0'),
-    ('grip-review.jpg', FINAL, TIMES, '540:600:220:370'),
-]:
-    thumbs = [ImageOps.contain(frame(path, t, crop), (640, 400)) for t in times]
-    sheet = Image.new('RGB', (1920, 860), 'white')
-    draw = ImageDraw.Draw(sheet)
-    for i, (thumb, t) in enumerate(zip(thumbs, times)):
-        x, y = (i % 3) * 640, (i // 3) * 430
-        sheet.paste(thumb, (x, y)); draw.text((x + 8, y + 402), f'{t:.1f}s', fill='black')
-    sheet.save(OUT / file, quality=92)
 
 receipt = {
     'test_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
