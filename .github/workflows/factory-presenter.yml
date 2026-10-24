@@ -59,6 +59,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   cleanup-verification:
+    # Historical baseline retired; history-cleanup.yml checks every rewritten commit.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
