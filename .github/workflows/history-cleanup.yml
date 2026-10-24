@@ -1,0 +1,64 @@
+name: Scoped factory history cleanup
+on:
+  push:
+    branches: [cleanup/factory-history-20261024]
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [prepare, apply]
+        default: prepare
+      backup_run_id:
+        type: string
+      backup_sha256:
+        type: string
+      expected_refs_sha256:
+        type: string
+      expected_main_sha:
+        type: string
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: scoped-factory-history-cleanup
+  cancel-in-progress: false
+jobs:
+  history:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      CLEANUP_MODE: ${{ inputs.mode || 'prepare' }}
+      BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+      BACKUP_SHA256: ${{ inputs.backup_sha256 }}
+      EXPECTED_REFS_SHA256: ${{ inputs.expected_refs_sha256 }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install pinned official filter-repo on CI only
+        run: |
+          curl --fail --location --max-time 45 --retry 1 https://raw.githubusercontent.com/newren/git-filter-repo/6f79afc8c90c592a3052e6cc53c2ca8907515bca/git-filter-repo -o "$RUNNER_TEMP/git-filter-repo"
+          echo "67447413e273fc76809289111748870b6f6072f08b17efe94863a92d810b7d94  $RUNNER_TEMP/git-filter-repo" | sha256sum --check
+          chmod 700 "$RUNNER_TEMP/git-filter-repo"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Recover the reviewed CI backup for apply
+        if: env.CLEANUP_MODE == 'apply'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: history-prepare-${{ inputs.backup_run_id }}
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ github.token }}
+          path: verified-backup
+      - name: Back up, filter, verify; publish only in explicit apply mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python factory-presenter/ci/purge_history.py
+      - name: Preserve backup or exact published verification receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: history-${{ env.CLEANUP_MODE }}-${{ github.run_id }}
+          path: history-out/
+          retention-days: 2
+          if-no-files-found: error
