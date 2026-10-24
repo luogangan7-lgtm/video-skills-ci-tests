@@ -1,0 +1,75 @@
+name: Factory lip sync repair
+on:
+  push:
+    branches: [fix/factory-lipsync-20261024]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: factory-lipsync-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SOURCE_SHA: 96c49b349b7d975bda8f05ce6669c1d33500c269
+      MUSETALK_SHA: 0a89dec45a0192b824e3cf4daf96c239440c5ed8
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+      HF_HUB_DISABLE_XET: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '60'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: xianyu110/ecommerce-video-skills
+          ref: 96c49b349b7d975bda8f05ce6669c1d33500c269
+          path: upstream
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: TMElyralab/MuseTalk
+          ref: 0a89dec45a0192b824e3cf4daf96c239440c5ed8
+          path: musetalk-upstream
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.10'
+      - name: Install only CPU inference and render dependencies
+        timeout-minutes: 8
+        run: |
+          mkdir -p factory-presenter/out
+          if ! command -v ffmpeg >/dev/null; then
+            timeout 90 sudo apt-get -o Acquire::Retries=1 update -qq
+            timeout 90 sudo apt-get -o Acquire::Retries=1 install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core
+          fi
+          python -m pip install --timeout 30 --retries 1 torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --timeout 30 --retries 1 pillow==11.1.0 numpy==1.26.4 edge-tts==7.3.1 diffusers==0.30.2 transformers==4.39.2 huggingface-hub==0.30.2 librosa==0.11.0 einops==0.8.1 opencv-python-headless==4.9.0.80 soundfile==0.12.1
+          python -m pip freeze > factory-presenter/out/dependencies.txt
+          cp musetalk-upstream/LICENSE factory-presenter/out/MuseTalk-LICENSE.txt
+      - name: Preserve existing native assembly and baseline gates
+        timeout-minutes: 6
+        run: |
+          python factory-presenter/ci/prepare.py
+          timeout 240 python upstream/scripts/assemble.py factory-presenter/storyboard.json --size 1920x1080 --font 'DejaVu Sans' --build factory-presenter/build -o factory-presenter/out/factory-presenter.mp4 > factory-presenter/out/render.log 2>&1
+          python factory-presenter/ci/verify.py
+      - name: Audio driven lower face repair and product close framing
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          timeout 1740 python factory-presenter/ci/lipsync.py 2>&1 | tee factory-presenter/out/lipsync.log
+      - name: Preserve exact media and receipts even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: factory-lipsync-${{ github.sha }}
+          path: |
+            factory-presenter/out/
+            factory-presenter/build/timing.json
+            factory-presenter/build/subs.ass
+          retention-days: 7
+          if-no-files-found: error
