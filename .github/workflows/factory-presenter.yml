@@ -1,12 +1,14 @@
 name: Factory presenter skill test
 on:
   push:
-    branches: [test/factory-presenter]
+    branches: [test/factory-presenter, cleanup/factory-test-media-20261024]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   ecommerce:
+    # Retired by the user; generated test media have been removed.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
@@ -56,3 +58,35 @@ jobs:
             factory-presenter/storyboard.json
           retention-days: 7
           if-no-files-found: error
+  cleanup-verification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify retired media absent and protected sources unchanged
+        shell: python
+        run: |
+          import json, os, subprocess
+          base = '3a83ce97d640d2d7672d3d84f77590584436c3b5'
+          media = {'factory-presenter/assets/' + name for name in (
+              'presenter-01.mp4', 'presenter-anchor.png', 'presenter-fixed.mp4',
+              'presenter-handheld-anchor.png', 'presenter-handheld.mp4')}
+          allowed = media | {'.github/workflows/factory-presenter.yml', 'factory-presenter/README.md'}
+          def tree(ref):
+              raw = subprocess.check_output(['git', 'ls-tree', '-r', '-z', ref]).decode()
+              return {row.split('\t', 1)[1]: row.split('\t', 1)[0] for row in raw.split('\0') if row}
+          before, after = tree(base), tree('HEAD')
+          assert media <= before.keys(), 'Expected old-media negative control missing'
+          assert not media.isdisjoint(before), 'Negative control must reject original tree'
+          print('RED control: original tree rejected because retired media exist')
+          assert media.isdisjoint(after), 'Retired generated media returned'
+          changed = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
+          assert changed == allowed, sorted(changed ^ allowed)
+          assert all(before[name] == after.get(name) for name in before.keys() - allowed)
+          workflow = open('.github/workflows/factory-presenter.yml').read()
+          ecommerce = workflow.split('  ecommerce:\n', 1)[1].split('  cleanup-verification:\n', 1)[0]
+          assert ('    if: $' + '{{ false }}\n') in ecommerce, 'Retired render job is enabled'
+          print(json.dumps({'status': 'PASS', 'sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'], 'removed_media': sorted(media), 'protected_blobs_unchanged': True, 'render_job': 'disabled'}))
