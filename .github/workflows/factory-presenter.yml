@@ -87,5 +87,6 @@ jobs:
           assert changed == allowed, sorted(changed ^ allowed)
           assert all(before[name] == after.get(name) for name in before.keys() - allowed)
           workflow = open('.github/workflows/factory-presenter.yml').read()
-          assert 'if: ${{ false }}' in workflow, 'Retired render job is enabled'
+          ecommerce = workflow.split('  ecommerce:\n', 1)[1].split('  cleanup-verification:\n', 1)[0]
+          assert ('    if: $' + '{{ false }}\n') in ecommerce, 'Retired render job is enabled'
           print(json.dumps({'status': 'PASS', 'sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'], 'removed_media': sorted(media), 'protected_blobs_unchanged': True, 'render_job': 'disabled'}))
